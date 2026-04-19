@@ -3,6 +3,12 @@ name = "api"
 version = "0.1.0"
 edition = "2024"
 
+[profile.ci]
+inherits = "release"
+debug = false
+incremental = true
+codegen-units = 16
+
 [dependencies]
 actix-web = "4"
 actix-files = "0.6"
