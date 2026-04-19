@@ -13,21 +13,24 @@ ARG TARGETARCH
 WORKDIR /app/api
 
 # Install C compiler tools required for compiling sqlite3-sys
-RUN apk add --no-cache musl-dev build-base
+# Install zig which is an excellent drop-in cross-compiler for C/C++
+RUN apk add --no-cache musl-dev build-base zig
 
 # Add cross-compilation target and linker based on TARGETARCH
 RUN case "$TARGETARCH" in \
         "amd64") \
             rustup target add x86_64-unknown-linux-musl && \
-            echo "export RUST_TARGET=x86_64-unknown-linux-musl" > /env.sh \
+            echo "export RUST_TARGET=x86_64-unknown-linux-musl" > /env.sh && \
+            echo "export CC_x86_64_unknown_linux_musl=\"zig cc -target x86_64-linux-musl\"" >> /env.sh && \
+            echo "export CXX_x86_64_unknown_linux_musl=\"zig c++ -target x86_64-linux-musl\"" >> /env.sh \
             ;; \
         "arm64") \
-            apk add --no-cache gcc-aarch64-none-elf && \
             rustup target add aarch64-unknown-linux-musl && \
             echo "export RUST_TARGET=aarch64-unknown-linux-musl" > /env.sh && \
+            echo "export CC_aarch64_unknown_linux_musl=\"zig cc -target aarch64-linux-musl\"" >> /env.sh && \
+            echo "export CXX_aarch64_unknown_linux_musl=\"zig c++ -target aarch64-linux-musl\"" >> /env.sh && \
             echo "[target.aarch64-unknown-linux-musl]" >> $CARGO_HOME/config.toml && \
-            echo "linker = \"aarch64-none-elf-gcc\"" >> $CARGO_HOME/config.toml && \
-            echo "export CC_aarch64_unknown_linux_musl=aarch64-none-elf-gcc" >> /env.sh \
+            echo "linker = \"rust-lld\"" >> $CARGO_HOME/config.toml \
             ;; \
         *) \
             echo "Unsupported architecture: $TARGETARCH" && exit 1 \
