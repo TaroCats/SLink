@@ -6,19 +6,20 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: Rust Dependencies caching with cargo-chef
-FROM rust:alpine AS planner
+# Stage 2: Base Rust Image for caching cargo-chef
+FROM rust:alpine AS rust-base
 WORKDIR /app/api
-RUN apk add --no-cache musl-dev
+# Install C compiler tools required for compiling sqlite3-sys
+RUN apk add --no-cache musl-dev build-base
 RUN cargo install cargo-chef
+
+# Stage 3: Prepare Recipe
+FROM rust-base AS planner
 COPY api .
 RUN cargo chef prepare --recipe-path recipe.json
 
-# Stage 3: Build Backend
-FROM rust:alpine AS backend-builder
-WORKDIR /app/api
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static sqlite-dev
-RUN cargo install cargo-chef
+# Stage 4: Build Backend
+FROM rust-base AS backend-builder
 # Copy recipe and build dependencies only (this layer is cached if Cargo.toml doesn't change)
 COPY --from=planner /app/api/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
@@ -27,12 +28,12 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY api .
 RUN cargo build --release --bin api
 
-# Stage 4: Final Runtime Image
-FROM alpine:3.19
+# Stage 5: Final Runtime Image
+FROM alpine:latest
 WORKDIR /app
 
-# Install runtime dependencies (OpenSSL, SQLite, CA certs)
-RUN apk add --no-cache libgcc libstdc++ openssl sqlite-libs ca-certificates
+# Install runtime dependencies (CA certs for HTTPS requests, libgcc for C binaries)
+RUN apk update && apk add --no-cache ca-certificates libgcc
 
 # Copy backend binary
 COPY --from=backend-builder /app/api/target/release/api /usr/local/bin/slink-api
