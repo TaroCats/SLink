@@ -6,16 +6,28 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: Build Backend
-FROM rust:alpine AS backend-builder
-WORKDIR /app
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static sqlite-dev
-COPY api ./api
+# Stage 2: Rust Dependencies caching with cargo-chef
+FROM rust:alpine AS planner
 WORKDIR /app/api
-# Build release binary
+RUN apk add --no-cache musl-dev
+RUN cargo install cargo-chef
+COPY api .
+RUN cargo chef prepare --recipe-path recipe.json
+
+# Stage 3: Build Backend
+FROM rust:alpine AS backend-builder
+WORKDIR /app/api
+RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static sqlite-dev
+RUN cargo install cargo-chef
+# Copy recipe and build dependencies only (this layer is cached if Cargo.toml doesn't change)
+COPY --from=planner /app/api/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Copy source code and build the final binary
+COPY api .
 RUN cargo build --release --bin api
 
-# Stage 3: Final Runtime Image
+# Stage 4: Final Runtime Image
 FROM alpine:3.19
 WORKDIR /app
 
