@@ -9,6 +9,8 @@ on:
     branches: [ "main" ]
 
 env:
+  # 强制使用 Node 24 运行 Actions (应对 Node 20 弃用警告)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   # 使用 GitHub 提供的容器镜像仓库
   REGISTRY: ghcr.io
   # 镜像名称会是: ghcr.io/tarocats/slink
