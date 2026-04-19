@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   slink-app:
-    image: ghcr.io/tarocats/slink:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: slink-app
     restart: unless-stopped
     ports:
