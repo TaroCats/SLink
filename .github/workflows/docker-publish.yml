@@ -56,8 +56,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          # 为了加快构建速度，仅构建原生的 AMD64 平台 (不再通过 qemu 模拟 ARM64，因为 Rust 在 qemu 下编译极其缓慢)
-          platforms: linux/amd64
+          # 根据用户反馈，重新启用 ARM64。同时保留 AMD64。
+          platforms: linux/amd64,linux/arm64
           # 如果是 PR 就不 push，只做 build 测试
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
