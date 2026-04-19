@@ -1,5 +1,5 @@
 use sqlx::{Pool, Sqlite};
-use crate::models::{User, Link, Domain, Visit};
+use crate::models::{User, Link, Domain};
 use uuid::Uuid;
 use chrono::Utc;
 

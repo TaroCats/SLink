@@ -1,6 +1,6 @@
 use actix_cors::Cors;
 use actix_files as fs;
-use actix_web::{web, App, HttpServer, HttpResponse, HttpRequest};
+use actix_web::{web, App, HttpServer, HttpRequest};
 use dotenvy::dotenv;
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
 use sqlx::migrate::MigrateDatabase;

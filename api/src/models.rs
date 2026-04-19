@@ -36,6 +36,7 @@ pub struct Link {
     pub click_count: i64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Visit {
     pub id: String,
@@ -51,6 +52,7 @@ pub struct Visit {
 pub struct ShortenRequest {
     pub url: String,
     pub custom_code: Option<String>,
+    #[allow(dead_code)]
     pub domain_id: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
     pub use_tcn: Option<bool>,
