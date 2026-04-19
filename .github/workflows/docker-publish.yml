@@ -57,7 +57,7 @@ jobs:
         with:
           context: .
           # 根据用户反馈，重新启用 ARM64。同时保留 AMD64。
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           # 如果是 PR 就不 push，只做 build 测试
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
