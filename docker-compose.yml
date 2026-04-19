@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  slink-app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: slink-app
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    volumes:
+      - slink-data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///app/data/shortlink.db
+      - RUST_LOG=info
+      - BIND_ADDRESS=0.0.0.0:8080
+      # 可以在这里替换为您自己的 t.cn 接口 App Key
+      # - T_CN_APPKEY=YOUR_APP_KEY
+
+volumes:
+  slink-data:
+    name: slink-data
