@@ -3,39 +3,113 @@ name: Docker Image CI/CD
 on:
   push:
     branches: [ "main" ]
-    # 当打上 v1.0.0 这种 Tag 时也会触发发布
     tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ "main" ]
 
 env:
-  # 强制使用 Node 24 运行 Actions (应对 Node 20 弃用警告)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  # 使用 GitHub 提供的容器镜像仓库
   REGISTRY: ghcr.io
-  # 镜像名称会是: ghcr.io/tarocats/slink
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push-image:
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Build Frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Upload Frontend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-frontend
+          path: dist/
+          retention-days: 1
+
+  build-backend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            arch: amd64
+          - target: aarch64-unknown-linux-musl
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ matrix.target }}
+          workspaces: api
+
+      - name: Install cross
+        uses: taiki-e/install-action@cross
+
+      - name: Build Backend with cross
+        run: |
+          cd api
+          cross build --release --target ${{ matrix.target }}
+          mkdir -p ../dist-bin
+          cp target/${{ matrix.target }}/release/api ../dist-bin/api-${{ matrix.arch }}
+
+      - name: Upload Backend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-bin-${{ matrix.arch }}
+          path: dist-bin/api-${{ matrix.arch }}
+          retention-days: 1
+
+  package-and-push:
+    needs: [build-frontend, build-backend]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: Download Frontend Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-frontend
+          path: dist-frontend
+
+      - name: Download Backend Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: backend-bin-*
+          path: dist-bin-temp
+          merge-multiple: true
+
+      - name: Prepare Binaries
+        run: |
+          mkdir -p dist-bin
+          # Move files from temp dir to final dir
+          mv dist-bin-temp/* dist-bin/
+          chmod +x dist-bin/*
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          # GITHUB_TOKEN 由 Action 自动注入，无需手动配置
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -56,12 +130,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          # 根据用户反馈，重新启用 ARM64。同时保留 AMD64。
           platforms: linux/amd64,linux/arm64
-          # 如果是 PR 就不 push，只做 build 测试
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # 使用 GitHub Actions 的缓存来加速 Docker 层构建（尤其是 Rust 编译）
           cache-from: type=gha
           cache-to: type=gha,mode=max
