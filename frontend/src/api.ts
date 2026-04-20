@@ -33,7 +33,7 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
 }
 
 export const api = {
-  shorten: (data: { url: string; custom_code?: string; domain_id?: string; expires_at?: string; use_tcn?: boolean }) => 
+  shorten: (data: { url: string; custom_code?: string; domain_id?: string; expires_at?: string; use_tcn?: boolean; password?: string }) => 
     fetchWithAuth('/shorten', { method: 'POST', body: JSON.stringify(data) }),
   
   adminLogin: (data: any) => 
@@ -43,9 +43,15 @@ export const api = {
   getStats: () => fetchWithAuth('/admin/stats'),
   getLinkStats: (id: string) => fetchWithAuth(`/admin/links/${id}/stats`),
   getLinks: () => fetchWithAuth('/admin/links'),
+  updateLink: (id: string, data: { expires_at?: string | null; password?: string | null }) =>
+    fetchWithAuth(`/admin/links/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteLink: (id: string) =>
+    fetchWithAuth(`/admin/links/${id}`, { method: 'DELETE' }),
   getDomains: () => fetchWithAuth('/admin/domains'),
   createDomain: (data: { domain: string; is_primary?: boolean }) => 
     fetchWithAuth('/admin/domains', { method: 'POST', body: JSON.stringify(data) }),
   deleteDomain: (id: string) => 
     fetchWithAuth(`/admin/domains/${id}`, { method: 'DELETE' }),
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    fetchWithAuth('/admin/password', { method: 'POST', body: JSON.stringify(data) }),
 };

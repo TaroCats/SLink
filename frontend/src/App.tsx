@@ -7,6 +7,7 @@ import Dashboard from './pages/admin/Dashboard';
 import Links from './pages/admin/Links';
 import LinkStats from './pages/admin/LinkStats';
 import Domains from './pages/admin/Domains';
+import Settings from './pages/admin/Settings';
 import Layout from './components/Layout';
 import { useAuthStore, useUIStore } from './store';
 import { useTranslation } from 'react-i18next';
@@ -56,6 +57,7 @@ function App() {
                     <Route path="links" element={<Links />} />
                     <Route path="links/:id/stats" element={<LinkStats />} />
                     <Route path="domains" element={<Domains />} />
+                    <Route path="settings" element={<Settings />} />
                   </Routes>
                 </Layout>
               </PrivateRoute>

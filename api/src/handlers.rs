@@ -1,24 +1,30 @@
-use actix_web::{web, HttpResponse, Responder, HttpRequest};
-use crate::models::{ShortenRequest, ShortenResponse, LoginRequest, LoginResponse, CreateDomainRequest, UnlockRequest, UnlockResponse};
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use crate::models::{
+    ChangePasswordRequest, CreateDomainRequest, LoginRequest, LoginResponse, ShortenRequest,
+    ShortenResponse, UnlockRequest, UnlockResponse,
+};
 use crate::AppState;
-use crate::auth::{generate_token, verify_token};
+use crate::auth::{generate_token, verify_token, Claims};
 use crate::db;
-use bcrypt::verify;
+use bcrypt::{hash, verify};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use serde_json::json;
 
-// Helper to check auth
-fn is_authorized(req: &HttpRequest) -> bool {
+fn extract_admin_claims(req: &HttpRequest) -> Result<Claims, HttpResponse> {
     if let Some(auth_header) = req.headers().get("Authorization") {
         if let Ok(auth_str) = auth_header.to_str() {
             if auth_str.starts_with("Bearer ") {
                 let token = &auth_str[7..];
-                return verify_token(token).is_ok();
+                if let Ok(claims) = verify_token(token) {
+                    if claims.is_admin {
+                        return Ok(claims);
+                    }
+                }
             }
         }
     }
-    false
+    Err(HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"})))
 }
 
 fn generate_short_code() -> String {
@@ -279,11 +285,11 @@ pub async fn get_links(
     req: HttpRequest,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    if !is_authorized(&req) {
+    if extract_admin_claims(&req).is_err() {
         return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"}));
     }
 
-    match db::get_all_links(&data.db).await {
+    match db::get_all_admin_links(&data.db).await {
         Ok(links) => HttpResponse::Ok().json(json!({
             "data": links,
             "total": links.len(),
@@ -293,11 +299,128 @@ pub async fn get_links(
     }
 }
 
+pub async fn update_link(
+    req: HttpRequest,
+    path: web::Path<String>,
+    body: web::Json<serde_json::Value>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    if extract_admin_claims(&req).is_err() {
+        return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"}));
+    }
+
+    let link_id = path.into_inner();
+    let body = body.into_inner();
+
+    let expires_at = if let Some(v) = body.get("expires_at") {
+        if v.is_null() {
+            Some(None)
+        } else if let Some(s) = v.as_str() {
+            match chrono::DateTime::parse_from_rfc3339(s) {
+                Ok(dt) => Some(Some(dt.with_timezone(&chrono::Utc))),
+                Err(_) => return HttpResponse::BadRequest().json(json!({"error": "Invalid expires_at"})),
+            }
+        } else {
+            return HttpResponse::BadRequest().json(json!({"error": "Invalid expires_at"}));
+        }
+    } else {
+        None
+    };
+
+    let password = if let Some(v) = body.get("password") {
+        if v.is_null() {
+            Some(None)
+        } else if let Some(s) = v.as_str() {
+            let trimmed = s.trim().to_string();
+            if trimmed.is_empty() {
+                Some(None)
+            } else {
+                Some(Some(trimmed))
+            }
+        } else {
+            return HttpResponse::BadRequest().json(json!({"error": "Invalid password"}));
+        }
+    } else {
+        None
+    };
+
+    match db::update_link_admin_fields(&data.db, &link_id, expires_at, password).await {
+        Ok(_) => HttpResponse::Ok().json(json!({"message": "Link updated successfully"})),
+        Err(e) => {
+            eprintln!("Failed to update link: {:?}", e);
+            HttpResponse::InternalServerError().json(json!({"error": "Failed to update link"}))
+        }
+    }
+}
+
+pub async fn delete_link(
+    req: HttpRequest,
+    path: web::Path<String>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    if extract_admin_claims(&req).is_err() {
+        return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"}));
+    }
+
+    let link_id = path.into_inner();
+    match db::delete_link(&data.db, &link_id).await {
+        Ok(_) => HttpResponse::Ok().json(json!({"message": "Link deleted successfully"})),
+        Err(e) => {
+            eprintln!("Failed to delete link: {:?}", e);
+            HttpResponse::InternalServerError().json(json!({"error": "Failed to delete link"}))
+        }
+    }
+}
+
+pub async fn change_password(
+    req: HttpRequest,
+    body: web::Json<ChangePasswordRequest>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let claims = match extract_admin_claims(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
+
+    if body.new_password.trim().len() < 8 {
+        return HttpResponse::BadRequest().json(json!({"error": "New password must be at least 8 characters"}));
+    }
+
+    let user = match db::get_user_by_id(&data.db, &claims.sub).await {
+        Ok(Some(u)) => u,
+        Ok(None) => return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"})),
+        Err(e) => {
+            eprintln!("Failed to fetch user: {:?}", e);
+            return HttpResponse::InternalServerError().json(json!({"error": "Failed to change password"}));
+        }
+    };
+
+    if !verify(&body.current_password, &user.password_hash).unwrap_or(false) {
+        return HttpResponse::Unauthorized().json(json!({"error": "Invalid current password"}));
+    }
+
+    let new_hash = match hash(body.new_password.trim(), 12) {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("Failed to hash password: {:?}", e);
+            return HttpResponse::InternalServerError().json(json!({"error": "Failed to change password"}));
+        }
+    };
+
+    match db::update_user_password_hash(&data.db, &user.id, &new_hash).await {
+        Ok(_) => HttpResponse::Ok().json(json!({"message": "Password updated successfully"})),
+        Err(e) => {
+            eprintln!("Failed to update password: {:?}", e);
+            HttpResponse::InternalServerError().json(json!({"error": "Failed to change password"}))
+        }
+    }
+}
+
 pub async fn get_domains(
     req: HttpRequest,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    if !is_authorized(&req) {
+    if extract_admin_claims(&req).is_err() {
         return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"}));
     }
 
@@ -316,7 +439,7 @@ pub async fn create_domain(
     body: web::Json<CreateDomainRequest>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    if !is_authorized(&req) {
+    if extract_admin_claims(&req).is_err() {
         return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"}));
     }
 
@@ -335,7 +458,7 @@ pub async fn delete_domain(
     path: web::Path<String>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    if !is_authorized(&req) {
+    if extract_admin_claims(&req).is_err() {
         return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"}));
     }
 
@@ -351,7 +474,7 @@ pub async fn get_link_stats(
     path: web::Path<String>,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    if !is_authorized(&req) {
+    if extract_admin_claims(&req).is_err() {
         return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"}));
     }
 
@@ -368,7 +491,7 @@ pub async fn get_stats(
     req: HttpRequest,
     data: web::Data<AppState>,
 ) -> impl Responder {
-    if !is_authorized(&req) {
+    if extract_admin_claims(&req).is_err() {
         return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"}));
     }
 

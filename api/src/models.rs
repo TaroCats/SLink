@@ -38,6 +38,20 @@ pub struct Link {
     pub password: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AdminLink {
+    pub id: String,
+    pub original_url: String,
+    pub short_code: String,
+    pub domain_id: Option<String>,
+    pub user_id: Option<String>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub is_active: i64,
+    pub click_count: i64,
+    pub has_password: i64,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Visit {
@@ -88,6 +102,12 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     pub token: String,
     pub expires_in: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
 }
 
 #[derive(Debug, Deserialize)]

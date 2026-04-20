@@ -1,5 +1,5 @@
 use sqlx::{Pool, Sqlite};
-use crate::models::{User, Link, Domain};
+use crate::models::{AdminLink, Domain, Link, User};
 use uuid::Uuid;
 use chrono::Utc;
 
@@ -8,6 +8,22 @@ pub async fn get_user_by_username(pool: &Pool<Sqlite>, username: &str) -> Result
         .bind(username)
         .fetch_optional(pool)
         .await
+}
+
+pub async fn get_user_by_id(pool: &Pool<Sqlite>, id: &str) -> Result<Option<User>, sqlx::Error> {
+    sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = ?")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+}
+
+pub async fn update_user_password_hash(pool: &Pool<Sqlite>, id: &str, password_hash: &str) -> Result<(), sqlx::Error> {
+    sqlx::query("UPDATE users SET password_hash = ? WHERE id = ?")
+        .bind(password_hash)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
 }
 
 pub async fn get_link_by_code(pool: &Pool<Sqlite>, code: &str) -> Result<Option<Link>, sqlx::Error> {
@@ -86,10 +102,59 @@ pub async fn create_link(
     get_link_by_code(pool, short_code).await.map(|l| l.unwrap())
 }
 
-pub async fn get_all_links(pool: &Pool<Sqlite>) -> Result<Vec<Link>, sqlx::Error> {
-    sqlx::query_as::<_, Link>("SELECT * FROM links ORDER BY created_at DESC")
-        .fetch_all(pool)
-        .await
+pub async fn get_all_admin_links(pool: &Pool<Sqlite>) -> Result<Vec<AdminLink>, sqlx::Error> {
+    sqlx::query_as::<_, AdminLink>(
+        "SELECT id, original_url, short_code, domain_id, user_id, created_at, expires_at, is_active, click_count,
+            CASE WHEN password IS NOT NULL AND password != '' THEN 1 ELSE 0 END AS has_password
+         FROM links
+         ORDER BY created_at DESC"
+    )
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn delete_link(pool: &Pool<Sqlite>, id: &str) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM links WHERE id = ?")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn update_link_admin_fields(
+    pool: &Pool<Sqlite>,
+    id: &str,
+    expires_at: Option<Option<chrono::DateTime<Utc>>>,
+    password: Option<Option<String>>,
+) -> Result<(), sqlx::Error> {
+    match (expires_at, password) {
+        (None, None) => Ok(()),
+        (Some(expires_at_value), None) => {
+            sqlx::query("UPDATE links SET expires_at = ? WHERE id = ?")
+                .bind(expires_at_value)
+                .bind(id)
+                .execute(pool)
+                .await?;
+            Ok(())
+        }
+        (None, Some(password_value)) => {
+            sqlx::query("UPDATE links SET password = ? WHERE id = ?")
+                .bind(password_value)
+                .bind(id)
+                .execute(pool)
+                .await?;
+            Ok(())
+        }
+        (Some(expires_at_value), Some(password_value)) => {
+            sqlx::query("UPDATE links SET expires_at = ?, password = ? WHERE id = ?")
+                .bind(expires_at_value)
+                .bind(password_value)
+                .bind(id)
+                .execute(pool)
+                .await?;
+            Ok(())
+        }
+    }
 }
 
 pub async fn get_all_domains(pool: &Pool<Sqlite>) -> Result<Vec<Domain>, sqlx::Error> {

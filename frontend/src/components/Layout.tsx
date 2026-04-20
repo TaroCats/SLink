@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store';
-import { LayoutDashboard, Link as LinkIcon, Globe, LogOut } from 'lucide-react';
+import { LayoutDashboard, Link as LinkIcon, Globe, LogOut, Settings2 } from 'lucide-react';
 import clsx from 'clsx';
 import { ThemeToggle, LanguageSwitcher } from './UIControls';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +21,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: t('dashboard'), path: '/admin/dashboard', icon: LayoutDashboard },
     { name: t('links'), path: '/admin/links', icon: LinkIcon },
     { name: t('domains'), path: '/admin/domains', icon: Globe },
+    { name: t('settings'), path: '/admin/settings', icon: Settings2 },
   ];
 
   return (
