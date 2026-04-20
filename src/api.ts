@@ -41,6 +41,7 @@ export const api = {
     
   getPublicDomains: () => fetchWithAuth('/domains'),
   getStats: () => fetchWithAuth('/admin/stats'),
+  getLinkStats: (id: string) => fetchWithAuth(`/admin/links/${id}/stats`),
   getLinks: () => fetchWithAuth('/admin/links'),
   getDomains: () => fetchWithAuth('/admin/domains'),
   createDomain: (data: { domain: string; is_primary?: boolean }) => 

@@ -17,19 +17,31 @@ pub async fn get_link_by_code(pool: &Pool<Sqlite>, code: &str) -> Result<Option<
         .await
 }
 
-pub async fn record_visit(pool: &Pool<Sqlite>, link_id: &str, ip: Option<&str>, user_agent: Option<&str>, referer: Option<&str>) -> Result<(), sqlx::Error> {
+pub async fn record_visit(
+    pool: &Pool<Sqlite>, 
+    link_id: &str, 
+    ip: Option<&str>, 
+    user_agent: Option<&str>, 
+    referer: Option<&str>,
+    device: Option<&str>,
+    os: Option<&str>,
+    browser: Option<&str>,
+) -> Result<(), sqlx::Error> {
     let id = Uuid::new_v4().to_string();
     
     // Begin transaction to insert visit and increment click_count
     let mut tx = pool.begin().await?;
 
-    sqlx::query("INSERT INTO visits (id, link_id, ip_address, user_agent, referer, visited_at) VALUES (?, ?, ?, ?, ?, ?)")
+    sqlx::query("INSERT INTO visits (id, link_id, ip_address, user_agent, referer, visited_at, device, os, browser) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .bind(&id)
         .bind(link_id)
         .bind(ip)
         .bind(user_agent)
         .bind(referer)
         .bind(Utc::now())
+        .bind(device)
+        .bind(os)
+        .bind(browser)
         .execute(&mut *tx)
         .await?;
 
@@ -49,14 +61,15 @@ pub async fn create_link(
     short_code: &str, 
     domain_id: Option<&str>, 
     user_id: Option<&str>,
-    expires_at: Option<chrono::DateTime<Utc>>
+    expires_at: Option<chrono::DateTime<Utc>>,
+    password: Option<&str>
 ) -> Result<Link, sqlx::Error> {
     let id = Uuid::new_v4().to_string();
     let now = Utc::now();
     
     sqlx::query(
-        "INSERT INTO links (id, original_url, short_code, domain_id, user_id, created_at, expires_at, is_active, click_count) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0)"
+        "INSERT INTO links (id, original_url, short_code, domain_id, user_id, created_at, expires_at, is_active, click_count, password) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?)"
     )
     .bind(&id)
     .bind(original_url)
@@ -65,6 +78,7 @@ pub async fn create_link(
     .bind(user_id)
     .bind(now)
     .bind(expires_at)
+    .bind(password)
     .execute(pool)
     .await?;
 
@@ -146,4 +160,43 @@ pub async fn get_stats(pool: &Pool<Sqlite>) -> Result<(i64, i64, i64), sqlx::Err
     let total_clicks = clicks_sum.map(|(c,)| c).unwrap_or(0);
 
     Ok((links_count.0, visits_count.0, total_clicks))
+}
+
+pub async fn get_link_detailed_stats(pool: &Pool<Sqlite>, link_id: &str) -> Result<crate::models::LinkStats, sqlx::Error> {
+    let total_visits: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM visits WHERE link_id = ?")
+        .bind(link_id)
+        .fetch_one(pool)
+        .await?;
+
+    let devices: Vec<(Option<String>, i64)> = sqlx::query_as("SELECT device, COUNT(*) as count FROM visits WHERE link_id = ? GROUP BY device ORDER BY count DESC LIMIT 10")
+        .bind(link_id)
+        .fetch_all(pool)
+        .await?;
+        
+    let os: Vec<(Option<String>, i64)> = sqlx::query_as("SELECT os, COUNT(*) as count FROM visits WHERE link_id = ? GROUP BY os ORDER BY count DESC LIMIT 10")
+        .bind(link_id)
+        .fetch_all(pool)
+        .await?;
+
+    let browsers: Vec<(Option<String>, i64)> = sqlx::query_as("SELECT browser, COUNT(*) as count FROM visits WHERE link_id = ? GROUP BY browser ORDER BY count DESC LIMIT 10")
+        .bind(link_id)
+        .fetch_all(pool)
+        .await?;
+
+    let referers: Vec<(Option<String>, i64)> = sqlx::query_as("SELECT referer, COUNT(*) as count FROM visits WHERE link_id = ? GROUP BY referer ORDER BY count DESC LIMIT 10")
+        .bind(link_id)
+        .fetch_all(pool)
+        .await?;
+
+    let map_to_string = |vec: Vec<(Option<String>, i64)>| -> Vec<(String, i64)> {
+        vec.into_iter().map(|(k, v)| (k.unwrap_or_else(|| "Direct / Unknown".to_string()), v)).collect()
+    };
+
+    Ok(crate::models::LinkStats {
+        total_visits: total_visits.0,
+        devices: map_to_string(devices),
+        os: map_to_string(os),
+        browsers: map_to_string(browsers),
+        referers: map_to_string(referers),
+    })
 }

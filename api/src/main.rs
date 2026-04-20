@@ -69,6 +69,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api")
                     .route("/shorten", web::post().to(handlers::shorten_link))
+                    .route("/unlock", web::post().to(handlers::unlock_link))
                     .route("/domains", web::get().to(handlers::get_public_domains))
                     .service(
                         web::scope("/admin")
@@ -78,6 +79,7 @@ async fn main() -> std::io::Result<()> {
                             .route("/domains", web::post().to(handlers::create_domain))
                             .route("/domains/{id}", web::delete().to(handlers::delete_domain))
                             .route("/stats", web::get().to(handlers::get_stats))
+                            .route("/links/{id}/stats", web::get().to(handlers::get_link_stats))
                     )
             )
             // Serve static files from the 'public' directory

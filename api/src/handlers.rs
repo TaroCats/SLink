@@ -1,5 +1,5 @@
 use actix_web::{web, HttpResponse, Responder, HttpRequest};
-use crate::models::{ShortenRequest, ShortenResponse, LoginRequest, LoginResponse, CreateDomainRequest};
+use crate::models::{ShortenRequest, ShortenResponse, LoginRequest, LoginResponse, CreateDomainRequest, UnlockRequest, UnlockResponse};
 use crate::AppState;
 use crate::auth::{generate_token, verify_token};
 use crate::db;
@@ -83,7 +83,7 @@ pub async fn shorten_link(
         _ => generate_short_code(), // Might collide, should loop in production
     };
 
-    match db::create_link(pool, &req.url, &code, None, None, req.expires_at).await {
+    match db::create_link(pool, &req.url, &code, None, None, req.expires_at, req.password.as_deref()).await {
         Ok(_) => {
             // We just use the host of the request (or X-Forwarded-Host if behind proxy)
             let host = http_req.headers().get("X-Forwarded-Host")
@@ -135,15 +135,52 @@ pub async fn redirect(
     let pool = &data.db;
 
     if let Ok(Some(link)) = db::get_link_by_code(pool, &code).await {
+        let now = chrono::Utc::now();
+        
+        // Check if link has expired
+        if let Some(expires_at) = link.expires_at {
+            if now > expires_at {
+                return HttpResponse::NotFound().body("Link has expired");
+            }
+        }
+        
+        // Check if password protected
+        if link.password.is_some() && !link.password.as_ref().unwrap().is_empty() {
+            // Need password verification
+            // Redirect to frontend unlock page
+            return HttpResponse::Found()
+                .append_header(("Location", format!("/unlock/{}", code)))
+                .finish();
+        }
+
         // Record visit asynchronously
         let ip = req.connection_info().realip_remote_addr().map(|s| s.to_string());
         let ua = req.headers().get("User-Agent").and_then(|v| v.to_str().ok().map(|s| s.to_string()));
         let referer = req.headers().get("Referer").and_then(|v| v.to_str().ok().map(|s| s.to_string()));
         let link_id = link.id.clone();
         
+        // Parse device, os, browser from User-Agent (Basic implementation, can be improved)
+        let (device, os, browser) = if let Some(ref ua_str) = ua {
+            let d = if ua_str.contains("Mobile") || ua_str.contains("Android") || ua_str.contains("iPhone") { "Mobile" } else { "Desktop" };
+            let o = if ua_str.contains("Windows") { "Windows" } 
+                    else if ua_str.contains("Mac OS X") { "macOS" }
+                    else if ua_str.contains("Android") { "Android" }
+                    else if ua_str.contains("Linux") { "Linux" }
+                    else if ua_str.contains("iOS") || ua_str.contains("iPhone") { "iOS" }
+                    else { "Unknown" };
+            let b = if ua_str.contains("Chrome") && !ua_str.contains("Edg") { "Chrome" }
+                    else if ua_str.contains("Safari") && !ua_str.contains("Chrome") { "Safari" }
+                    else if ua_str.contains("Firefox") { "Firefox" }
+                    else if ua_str.contains("Edg") { "Edge" }
+                    else { "Unknown" };
+            (Some(d.to_string()), Some(o.to_string()), Some(b.to_string()))
+        } else {
+            (None, None, None)
+        };
+
         let pool_clone = pool.clone();
         actix_web::rt::spawn(async move {
-            let _ = db::record_visit(&pool_clone, &link_id, ip.as_deref(), ua.as_deref(), referer.as_deref()).await;
+            let _ = db::record_visit(&pool_clone, &link_id, ip.as_deref(), ua.as_deref(), referer.as_deref(), device.as_deref(), os.as_deref(), browser.as_deref()).await;
         });
 
         HttpResponse::Found()
@@ -155,6 +192,63 @@ pub async fn redirect(
     }
 }
 
+pub async fn unlock_link(
+    req: web::Json<UnlockRequest>,
+    data: web::Data<AppState>,
+    http_req: HttpRequest,
+) -> impl Responder {
+    let pool = &data.db;
+    
+    if let Ok(Some(link)) = db::get_link_by_code(pool, &req.short_code).await {
+        let now = chrono::Utc::now();
+        if let Some(expires_at) = link.expires_at {
+            if now > expires_at {
+                return HttpResponse::BadRequest().json(json!({"error": "Link has expired"}));
+            }
+        }
+
+        if let Some(ref pw) = link.password {
+            if !pw.is_empty() && req.password.as_deref() != Some(pw) {
+                return HttpResponse::Unauthorized().json(json!({"error": "Incorrect password"}));
+            }
+        }
+
+        // Record visit asynchronously since they successfully unlocked it
+        let ip = http_req.connection_info().realip_remote_addr().map(|s| s.to_string());
+        let ua = http_req.headers().get("User-Agent").and_then(|v| v.to_str().ok().map(|s| s.to_string()));
+        let referer = http_req.headers().get("Referer").and_then(|v| v.to_str().ok().map(|s| s.to_string()));
+        let link_id = link.id.clone();
+        
+        let (device, os, browser) = if let Some(ref ua_str) = ua {
+            let d = if ua_str.contains("Mobile") || ua_str.contains("Android") || ua_str.contains("iPhone") { "Mobile" } else { "Desktop" };
+            let o = if ua_str.contains("Windows") { "Windows" } 
+                    else if ua_str.contains("Mac OS X") { "macOS" }
+                    else if ua_str.contains("Android") { "Android" }
+                    else if ua_str.contains("Linux") { "Linux" }
+                    else if ua_str.contains("iOS") || ua_str.contains("iPhone") { "iOS" }
+                    else { "Unknown" };
+            let b = if ua_str.contains("Chrome") && !ua_str.contains("Edg") { "Chrome" }
+                    else if ua_str.contains("Safari") && !ua_str.contains("Chrome") { "Safari" }
+                    else if ua_str.contains("Firefox") { "Firefox" }
+                    else if ua_str.contains("Edg") { "Edge" }
+                    else { "Unknown" };
+            (Some(d.to_string()), Some(o.to_string()), Some(b.to_string()))
+        } else {
+            (None, None, None)
+        };
+
+        let pool_clone = pool.clone();
+        actix_web::rt::spawn(async move {
+            let _ = db::record_visit(&pool_clone, &link_id, ip.as_deref(), ua.as_deref(), referer.as_deref(), device.as_deref(), os.as_deref(), browser.as_deref()).await;
+        });
+
+        HttpResponse::Ok().json(UnlockResponse {
+            original_url: link.original_url
+        })
+    } else {
+        HttpResponse::NotFound().json(json!({"error": "Link not found"}))
+    }
+}
 pub async fn admin_login(
     req: web::Json<LoginRequest>,
     data: web::Data<AppState>,
@@ -252,6 +346,24 @@ pub async fn delete_domain(
     }
 }
 
+pub async fn get_link_stats(
+    req: HttpRequest,
+    path: web::Path<String>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    if !is_authorized(&req) {
+        return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"}));
+    }
+
+    let link_id = path.into_inner();
+    match db::get_link_detailed_stats(&data.db, &link_id).await {
+        Ok(stats) => HttpResponse::Ok().json(stats),
+        Err(e) => {
+            eprintln!("Failed to fetch link stats: {:?}", e);
+            HttpResponse::InternalServerError().json(json!({"error": "Failed to fetch stats"}))
+        }
+    }
+}
 pub async fn get_stats(
     req: HttpRequest,
     data: web::Data<AppState>,

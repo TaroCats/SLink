@@ -34,6 +34,8 @@ pub struct Link {
     pub expires_at: Option<DateTime<Utc>>,
     pub is_active: i64,
     pub click_count: i64,
+    #[serde(skip_serializing)]
+    pub password: Option<String>,
 }
 
 #[allow(dead_code)]
@@ -46,6 +48,9 @@ pub struct Visit {
     pub referer: Option<String>,
     pub visited_at: Option<DateTime<Utc>>,
     pub country: Option<String>,
+    pub device: Option<String>,
+    pub os: Option<String>,
+    pub browser: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -56,6 +61,7 @@ pub struct ShortenRequest {
     pub domain_id: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
     pub use_tcn: Option<bool>,
+    pub password: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -82,4 +88,24 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     pub token: String,
     pub expires_in: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UnlockRequest {
+    pub short_code: String,
+    pub password: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UnlockResponse {
+    pub original_url: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LinkStats {
+    pub total_visits: i64,
+    pub devices: Vec<(String, i64)>,
+    pub os: Vec<(String, i64)>,
+    pub browsers: Vec<(String, i64)>,
+    pub referers: Vec<(String, i64)>,
 }

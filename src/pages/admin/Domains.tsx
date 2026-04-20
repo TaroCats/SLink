@@ -66,16 +66,16 @@ export default function Domains() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white transition-colors">{t('domains')} Configuration</h1>
         <button 
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-all duration-300 shadow-md hover:shadow-lg active:scale-95"
         >
           Add Domain
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden transition-colors">
+      <div className="backdrop-blur-2xl bg-white/70 dark:bg-[#1c1c1e]/70 shadow-[0_8px_32px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.2)] border border-white/20 dark:border-gray-700/30 rounded-2xl overflow-hidden transition-all duration-300">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700 transition-colors">
+            <thead className="bg-white/40 dark:bg-black/20 border-b border-gray-200/50 dark:border-gray-700/50 transition-colors backdrop-blur-md">
               <tr>
                 <th className="px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors">Domain</th>
                 <th className="px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors">Primary</th>
@@ -84,9 +84,9 @@ export default function Domains() {
                 <th className="px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors text-right">{t('actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700 transition-colors">
+            <tbody className="divide-y divide-gray-200/50 dark:divide-gray-700/50 transition-colors">
               {domains.map((domain) => (
-                <tr key={domain.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <tr key={domain.id} className="hover:bg-white/50 dark:hover:bg-white/5 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900 dark:text-white transition-colors">
                     {domain.domain}
                   </td>
@@ -133,15 +133,15 @@ export default function Domains() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 transition-opacity">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden transition-colors">
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity animate-in fade-in duration-300">
+          <div className="backdrop-blur-2xl bg-white/80 dark:bg-[#1c1c1e]/80 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-white/20 dark:border-gray-700/30 w-full max-w-md overflow-hidden transition-all duration-300 transform scale-100 animate-in zoom-in-95 duration-300">
+            <div className="px-6 py-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-white/40 dark:bg-black/20 backdrop-blur-md">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white transition-colors">Add New Domain</h2>
             </div>
             <form onSubmit={handleCreate} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">
                     Domain Name
                   </label>
                   <input
@@ -150,18 +150,18 @@ export default function Domains() {
                     value={newDomain}
                     onChange={(e) => setNewDomain(e.target.value)}
                     placeholder="e.g. short.mycompany.com"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-black/20 text-gray-900 dark:text-white focus:bg-white/80 dark:focus:bg-black/40 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 backdrop-blur-md shadow-inner transition-all duration-300 outline-none font-medium placeholder-gray-400 dark:placeholder-gray-500"
                   />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pt-2">
                   <input
                     type="checkbox"
                     id="is_primary"
                     checked={isPrimary}
                     onChange={(e) => setIsPrimary(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 transition-all duration-200"
                   />
-                  <label htmlFor="is_primary" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer transition-colors">
+                  <label htmlFor="is_primary" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer transition-colors">
                     Set as Primary Domain
                   </label>
                 </div>
@@ -170,14 +170,14 @@ export default function Domains() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                  className="px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-700/60 rounded-xl transition-all duration-300 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitLoading || !newDomain}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors disabled:opacity-50"
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 font-medium shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center min-w-[100px]"
                 >
                   {submitLoading ? 'Creating...' : 'Create'}
                 </button>
