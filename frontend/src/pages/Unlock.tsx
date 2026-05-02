@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Lock, ArrowRight } from 'lucide-react';
 import { ThemeToggle, LanguageSwitcher } from '../components/UIControls';
@@ -11,8 +11,17 @@ export default function Unlock() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    // Check if password is provided in the URL hash (e.g., #mypassword)
+    const hash = window.location.hash;
+    if (hash && hash.length > 1) {
+      const hashPassword = hash.substring(1); // remove the '#'
+      setPassword(hashPassword);
+      verifyPassword(hashPassword);
+    }
+  }, [code]);
+
+  const verifyPassword = async (pwdToVerify: string) => {
     setLoading(true);
     setError('');
 
@@ -20,7 +29,7 @@ export default function Unlock() {
       const res = await fetch('/api/unlock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ short_code: code, password }),
+        body: JSON.stringify({ short_code: code, password: pwdToVerify }),
       });
       const data = await res.json();
       
@@ -33,9 +42,16 @@ export default function Unlock() {
       }
     } catch (err: any) {
       setError(err.message || t('verification_failed'));
+      // Clear the hash from the URL so it doesn't stay there if it's wrong
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await verifyPassword(password);
   };
 
   return (

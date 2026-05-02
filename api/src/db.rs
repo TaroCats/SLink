@@ -77,15 +77,14 @@ pub async fn create_link(
     short_code: &str, 
     domain_id: Option<&str>, 
     user_id: Option<&str>,
-    expires_at: Option<chrono::DateTime<Utc>>,
     password: Option<&str>
 ) -> Result<Link, sqlx::Error> {
     let id = Uuid::new_v4().to_string();
     let now = Utc::now();
     
     sqlx::query(
-        "INSERT INTO links (id, original_url, short_code, domain_id, user_id, created_at, expires_at, is_active, click_count, password) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?)"
+        "INSERT INTO links (id, original_url, short_code, domain_id, user_id, created_at, is_active, click_count, password) 
+         VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?)"
     )
     .bind(&id)
     .bind(original_url)
@@ -93,7 +92,6 @@ pub async fn create_link(
     .bind(domain_id)
     .bind(user_id)
     .bind(now)
-    .bind(expires_at)
     .bind(password)
     .execute(pool)
     .await?;
@@ -104,7 +102,7 @@ pub async fn create_link(
 
 pub async fn get_all_admin_links(pool: &Pool<Sqlite>) -> Result<Vec<AdminLink>, sqlx::Error> {
     sqlx::query_as::<_, AdminLink>(
-        "SELECT id, original_url, short_code, domain_id, user_id, created_at, expires_at, is_active, click_count,
+        "SELECT id, original_url, short_code, domain_id, user_id, created_at, is_active, click_count,
             CASE WHEN password IS NOT NULL AND password != '' THEN 1 ELSE 0 END AS has_password
          FROM links
          ORDER BY created_at DESC"
@@ -124,37 +122,29 @@ pub async fn delete_link(pool: &Pool<Sqlite>, id: &str) -> Result<(), sqlx::Erro
 pub async fn update_link_admin_fields(
     pool: &Pool<Sqlite>,
     id: &str,
-    expires_at: Option<Option<chrono::DateTime<Utc>>>,
     password: Option<Option<String>>,
+    original_url: Option<String>,
 ) -> Result<(), sqlx::Error> {
-    match (expires_at, password) {
-        (None, None) => Ok(()),
-        (Some(expires_at_value), None) => {
-            sqlx::query("UPDATE links SET expires_at = ? WHERE id = ?")
-                .bind(expires_at_value)
-                .bind(id)
-                .execute(pool)
-                .await?;
-            Ok(())
-        }
-        (None, Some(password_value)) => {
-            sqlx::query("UPDATE links SET password = ? WHERE id = ?")
-                .bind(password_value)
-                .bind(id)
-                .execute(pool)
-                .await?;
-            Ok(())
-        }
-        (Some(expires_at_value), Some(password_value)) => {
-            sqlx::query("UPDATE links SET expires_at = ?, password = ? WHERE id = ?")
-                .bind(expires_at_value)
-                .bind(password_value)
-                .bind(id)
-                .execute(pool)
-                .await?;
-            Ok(())
-        }
+    let mut tx = pool.begin().await?;
+
+    if let Some(password_value) = password {
+        sqlx::query("UPDATE links SET password = ? WHERE id = ?")
+            .bind(password_value)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
     }
+
+    if let Some(url_value) = original_url {
+        sqlx::query("UPDATE links SET original_url = ? WHERE id = ?")
+            .bind(url_value)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    tx.commit().await?;
+    Ok(())
 }
 
 pub async fn get_all_domains(pool: &Pool<Sqlite>) -> Result<Vec<Domain>, sqlx::Error> {

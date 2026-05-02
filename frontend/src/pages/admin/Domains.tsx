@@ -74,23 +74,24 @@ export default function Domains() {
 
       <div className="glass-panel overflow-hidden transition-all duration-500">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          {/* Desktop Table */}
+          <table className="w-full text-left hidden md:table border-collapse">
             <thead className="bg-gray-100/50 dark:bg-black/30 border-b border-white/20 dark:border-white/10 transition-colors backdrop-blur-xl">
               <tr>
-                <th className="px-8 py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Domain</th>
-                <th className="px-8 py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Primary</th>
-                <th className="px-8 py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">{t('created_at')}</th>
-                <th className="px-8 py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Status</th>
-                <th className="px-8 py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase text-right">{t('actions')}</th>
+                <th className="px-4 md:px-8 py-4 md:py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Domain</th>
+                <th className="px-4 md:px-8 py-4 md:py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Primary</th>
+                <th className="px-4 md:px-8 py-4 md:py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">{t('created_at')}</th>
+                <th className="px-4 md:px-8 py-4 md:py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Status</th>
+                <th className="px-4 md:px-8 py-4 md:py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase text-right">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/20 dark:divide-white/10 transition-colors">
               {domains.map((domain) => (
                 <tr key={domain.id} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors duration-300">
-                  <td className="px-8 py-5 font-bold text-gray-900 dark:text-white transition-colors tracking-tight text-lg">
+                  <td className="px-4 md:px-8 py-4 md:py-5 font-bold text-gray-900 dark:text-white transition-colors tracking-tight text-lg">
                     {domain.domain}
                   </td>
-                  <td className="px-8 py-5">
+                  <td className="px-4 md:px-8 py-4 md:py-5">
                     {domain.is_primary === 1 ? (
                       <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-accent-blue/10 text-accent-blue dark:text-accent-cyan border border-accent-blue/20 tracking-tight">
                         Primary
@@ -99,17 +100,17 @@ export default function Domains() {
                       <span className="text-gray-400 dark:text-gray-500">-</span>
                     )}
                   </td>
-                  <td className="px-8 py-5 text-gray-500 dark:text-gray-400 transition-colors font-medium tracking-tight">
+                  <td className="px-4 md:px-8 py-4 md:py-5 text-gray-500 dark:text-gray-400 transition-colors font-medium tracking-tight">
                     {new Date(domain.created_at).toLocaleDateString()}
                   </td>
-                  <td className="px-8 py-5">
+                  <td className="px-4 md:px-8 py-4 md:py-5">
                     <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold border tracking-tight ${
                       domain.is_active === 1 ? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400'
                     }`}>
                       {domain.is_active === 1 ? 'Active' : 'Disabled'}
                     </span>
                   </td>
-                  <td className="px-8 py-5 text-right">
+                  <td className="px-4 md:px-8 py-4 md:py-5 text-right">
                     <button 
                       onClick={() => handleDelete(domain.id)}
                       className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-red-500 transition-colors duration-300"
@@ -129,6 +130,53 @@ export default function Domains() {
               )}
             </tbody>
           </table>
+
+          {/* Mobile Card Layout */}
+          <div className="md:hidden flex flex-col divide-y divide-gray-200/50 dark:divide-white/10">
+            {domains.map((domain) => (
+              <div key={domain.id} className="p-5 flex flex-col gap-4 hover:bg-white/40 dark:hover:bg-white/5 transition-colors duration-300">
+                <div className="flex justify-between items-start">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-bold text-gray-900 dark:text-white tracking-tight text-lg">
+                      {domain.domain}
+                    </span>
+                    <span className="text-gray-500 dark:text-gray-400 text-xs font-bold tracking-widest uppercase">
+                      {new Date(domain.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold border tracking-tight ${
+                    domain.is_active === 1 ? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400'
+                  }`}>
+                    {domain.is_active === 1 ? 'Active' : 'Disabled'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div>
+                    {domain.is_primary === 1 ? (
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-accent-blue/10 text-accent-blue dark:text-accent-cyan border border-accent-blue/20 tracking-tight shadow-sm">
+                        Primary
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500 text-sm font-medium">Standard</span>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => handleDelete(domain.id)}
+                    className="p-2 bg-white/50 dark:bg-black/30 rounded-full text-gray-500 hover:text-red-500 transition-colors shadow-sm"
+                    title="Delete Domain"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {domains.length === 0 && (
+              <div className="p-8 text-center text-gray-500 dark:text-gray-400 font-bold tracking-tight text-lg">
+                No domains found
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

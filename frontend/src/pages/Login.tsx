@@ -32,13 +32,13 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen relative flex flex-col justify-center py-12 sm:px-6 lg:px-8 transition-colors duration-700 ease-apple">
+    <div className="min-h-screen relative flex flex-col justify-center px-4 py-12 sm:px-6 lg:px-8 transition-colors duration-700 ease-apple">
       <div className="absolute top-6 right-6 flex items-center gap-4 z-20">
         <ThemeToggle />
         <LanguageSwitcher />
       </div>
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 ease-apple">
+      <div className="w-full sm:mx-auto sm:max-w-md relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 ease-apple">
         <div className="flex justify-center mb-6">
           <div className="relative group cursor-pointer">
             <div className="absolute -inset-4 bg-gradient-to-r from-accent-cyan to-accent-blue rounded-full blur-xl opacity-20 group-hover:opacity-40 transition duration-700"></div>
@@ -52,7 +52,7 @@ export default function Login() {
         </h2>
       </div>
 
-      <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-md relative z-10 animate-in fade-in slide-in-from-bottom-12 duration-1000 ease-apple delay-150">
+      <div className="mt-10 w-full sm:mx-auto sm:max-w-md relative z-10 animate-in fade-in slide-in-from-bottom-12 duration-1000 ease-apple delay-150">
         <div className="glass-panel py-10 px-6 sm:px-10 transition-all duration-500 hover:shadow-2xl hover:shadow-accent-blue/10">
           <form className="space-y-8" onSubmit={handleSubmit}>
             <div className="space-y-4">

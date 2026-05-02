@@ -35,28 +35,6 @@ fn generate_short_code() -> String {
         .collect()
 }
 
-async fn shorten_with_tcn(long_url: &str) -> Option<String> {
-    let app_key = std::env::var("T_CN_APPKEY").unwrap_or_else(|_| "3271760578".to_string());
-    let client = reqwest::Client::new();
-    
-    if let Ok(resp) = client.get("https://api.weibo.com/2/short_url/shorten.json")
-        .query(&[("source", app_key.as_str()), ("url_long", long_url)])
-        .send()
-        .await 
-    {
-        if let Ok(json) = resp.json::<serde_json::Value>().await {
-            if let Some(urls) = json.get("urls").and_then(|u| u.as_array()) {
-                if let Some(first) = urls.get(0) {
-                    if let Some(url_short) = first.get("url_short").and_then(|u| u.as_str()) {
-                        return Some(url_short.to_string());
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
 pub async fn get_public_domains(
     data: web::Data<AppState>,
 ) -> impl Responder {
@@ -89,7 +67,7 @@ pub async fn shorten_link(
         _ => generate_short_code(), // Might collide, should loop in production
     };
 
-    match db::create_link(pool, &req.url, &code, None, None, req.expires_at, req.password.as_deref()).await {
+    match db::create_link(pool, &req.url, &code, None, None, req.password.as_deref()).await {
         Ok(_) => {
             // We just use the host of the request (or X-Forwarded-Host if behind proxy)
             let host = http_req.headers().get("X-Forwarded-Host")
@@ -105,23 +83,9 @@ pub async fn shorten_link(
             
             let short_url = format!("{}://{}/{}", scheme, host, code);
             
-            let mut tcn_url_result = None;
-            if req.use_tcn.unwrap_or(false) {
-                // If using tcn, we use the generated short_url, but since we are developing locally (localhost)
-                // t.cn might fail or reject localhost urls. Let's still try to call it.
-                if let Some(tcn_url) = shorten_with_tcn(&short_url).await {
-                    tcn_url_result = Some(tcn_url);
-                } else {
-                    // Fallback mock if t.cn API fails (for local development)
-                    println!("t.cn API failed or rejected the URL, falling back to mock");
-                    tcn_url_result = Some(format!("https://t.cn/mock{}", code));
-                }
-            }
-            
             HttpResponse::Ok().json(ShortenResponse {
                 short_url,
                 short_code: code,
-                tcn_url: tcn_url_result,
                 qr_code: None, // Can be implemented later
             })
         }
@@ -141,14 +105,6 @@ pub async fn redirect(
     let pool = &data.db;
 
     if let Ok(Some(link)) = db::get_link_by_code(pool, &code).await {
-        let now = chrono::Utc::now();
-        
-        // Check if link has expired
-        if let Some(expires_at) = link.expires_at {
-            if now > expires_at {
-                return HttpResponse::NotFound().body("Link has expired");
-            }
-        }
         
         // Check if password protected
         if link.password.is_some() && !link.password.as_ref().unwrap().is_empty() {
@@ -206,12 +162,6 @@ pub async fn unlock_link(
     let pool = &data.db;
     
     if let Ok(Some(link)) = db::get_link_by_code(pool, &req.short_code).await {
-        let now = chrono::Utc::now();
-        if let Some(expires_at) = link.expires_at {
-            if now > expires_at {
-                return HttpResponse::BadRequest().json(json!({"error": "Link has expired"}));
-            }
-        }
 
         if let Some(ref pw) = link.password {
             if !pw.is_empty() && req.password.as_deref() != Some(pw) {
@@ -312,21 +262,6 @@ pub async fn update_link(
     let link_id = path.into_inner();
     let body = body.into_inner();
 
-    let expires_at = if let Some(v) = body.get("expires_at") {
-        if v.is_null() {
-            Some(None)
-        } else if let Some(s) = v.as_str() {
-            match chrono::DateTime::parse_from_rfc3339(s) {
-                Ok(dt) => Some(Some(dt.with_timezone(&chrono::Utc))),
-                Err(_) => return HttpResponse::BadRequest().json(json!({"error": "Invalid expires_at"})),
-            }
-        } else {
-            return HttpResponse::BadRequest().json(json!({"error": "Invalid expires_at"}));
-        }
-    } else {
-        None
-    };
-
     let password = if let Some(v) = body.get("password") {
         if v.is_null() {
             Some(None)
@@ -344,7 +279,22 @@ pub async fn update_link(
         None
     };
 
-    match db::update_link_admin_fields(&data.db, &link_id, expires_at, password).await {
+    let original_url = if let Some(v) = body.get("original_url") {
+        if let Some(s) = v.as_str() {
+            let trimmed = s.trim().to_string();
+            if !trimmed.is_empty() {
+                Some(trimmed)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    match db::update_link_admin_fields(&data.db, &link_id, password, original_url).await {
         Ok(_) => HttpResponse::Ok().json(json!({"message": "Link updated successfully"})),
         Err(e) => {
             eprintln!("Failed to update link: {:?}", e);

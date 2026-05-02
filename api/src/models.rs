@@ -31,7 +31,6 @@ pub struct Link {
     pub domain_id: Option<String>,
     pub user_id: Option<String>,
     pub created_at: Option<DateTime<Utc>>,
-    pub expires_at: Option<DateTime<Utc>>,
     pub is_active: i64,
     pub click_count: i64,
     #[serde(skip_serializing)]
@@ -46,7 +45,6 @@ pub struct AdminLink {
     pub domain_id: Option<String>,
     pub user_id: Option<String>,
     pub created_at: Option<DateTime<Utc>>,
-    pub expires_at: Option<DateTime<Utc>>,
     pub is_active: i64,
     pub click_count: i64,
     pub has_password: i64,
@@ -73,8 +71,6 @@ pub struct ShortenRequest {
     pub custom_code: Option<String>,
     #[allow(dead_code)]
     pub domain_id: Option<String>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub use_tcn: Option<bool>,
     pub password: Option<String>,
 }
 
@@ -82,7 +78,6 @@ pub struct ShortenRequest {
 pub struct ShortenResponse {
     pub short_url: String,
     pub short_code: String,
-    pub tcn_url: Option<String>,
     pub qr_code: Option<String>,
 }
 
