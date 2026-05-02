@@ -26,21 +26,27 @@ export default function Dashboard() {
   ];
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-8 transition-colors">{t('dashboard')} Overview</h1>
+    <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 ease-apple">
+      <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 mb-8 transition-colors tracking-tight">
+        {t('dashboard')} Overview
+      </h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.name} className="backdrop-blur-2xl bg-white/70 dark:bg-[#1c1c1e]/70 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.2)] border border-white/20 dark:border-gray-700/30 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_16px_48px_rgba(0,0,0,0.3)]">
+            <div key={stat.name} className="glass-panel p-8 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 group cursor-pointer">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors">{stat.name}</p>
-                  <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white transition-colors">{stat.value}</p>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase transition-colors mb-2">
+                    {stat.name}
+                  </p>
+                  <p className="text-5xl font-extrabold text-gray-900 dark:text-white transition-colors tracking-tight">
+                    {stat.value}
+                  </p>
                 </div>
-                <div className={`p-4 rounded-full ${stat.color} bg-opacity-10 dark:bg-opacity-20`}>
-                  <Icon className={stat.iconColor} size={24} />
+                <div className={`p-4 rounded-[1.2rem] ${stat.color} bg-opacity-10 dark:bg-opacity-20 backdrop-blur-md group-hover:scale-110 transition-transform duration-500 ease-apple`}>
+                  <Icon className={stat.iconColor} size={32} strokeWidth={2} />
                 </div>
               </div>
             </div>

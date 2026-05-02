@@ -61,68 +61,68 @@ export default function Domains() {
   if (loading && domains.length === 0) return <div className="text-gray-500 dark:text-gray-400">Loading domains...</div>;
 
   return (
-    <div>
+    <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 ease-apple">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white transition-colors">{t('domains')} Configuration</h1>
+        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 transition-colors tracking-tight">{t('domains')} Configuration</h1>
         <button 
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-all duration-300 shadow-md hover:shadow-lg active:scale-95"
+          className="glass-button px-6 py-3 text-sm flex items-center justify-center shadow-lg hover:shadow-xl"
         >
           Add Domain
         </button>
       </div>
 
-      <div className="backdrop-blur-2xl bg-white/70 dark:bg-[#1c1c1e]/70 shadow-[0_8px_32px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.2)] border border-white/20 dark:border-gray-700/30 rounded-2xl overflow-hidden transition-all duration-300">
+      <div className="glass-panel overflow-hidden transition-all duration-500">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-white/40 dark:bg-black/20 border-b border-gray-200/50 dark:border-gray-700/50 transition-colors backdrop-blur-md">
+            <thead className="bg-gray-100/50 dark:bg-black/30 border-b border-white/20 dark:border-white/10 transition-colors backdrop-blur-xl">
               <tr>
-                <th className="px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors">Domain</th>
-                <th className="px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors">Primary</th>
-                <th className="px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors">{t('created_at')}</th>
-                <th className="px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors">Status</th>
-                <th className="px-6 py-4 text-sm font-medium text-gray-500 dark:text-gray-400 transition-colors text-right">{t('actions')}</th>
+                <th className="px-8 py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Domain</th>
+                <th className="px-8 py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Primary</th>
+                <th className="px-8 py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">{t('created_at')}</th>
+                <th className="px-8 py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Status</th>
+                <th className="px-8 py-5 text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase text-right">{t('actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200/50 dark:divide-gray-700/50 transition-colors">
+            <tbody className="divide-y divide-white/20 dark:divide-white/10 transition-colors">
               {domains.map((domain) => (
-                <tr key={domain.id} className="hover:bg-white/50 dark:hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-white transition-colors">
+                <tr key={domain.id} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors duration-300">
+                  <td className="px-8 py-5 font-bold text-gray-900 dark:text-white transition-colors tracking-tight text-lg">
                     {domain.domain}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-8 py-5">
                     {domain.is_primary === 1 ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400">
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-accent-blue/10 text-accent-blue dark:text-accent-cyan border border-accent-blue/20 tracking-tight">
                         Primary
                       </span>
                     ) : (
                       <span className="text-gray-400 dark:text-gray-500">-</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-gray-500 dark:text-gray-400 transition-colors">
+                  <td className="px-8 py-5 text-gray-500 dark:text-gray-400 transition-colors font-medium tracking-tight">
                     {new Date(domain.created_at).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      domain.is_active === 1 ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
+                  <td className="px-8 py-5">
+                    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold border tracking-tight ${
+                      domain.is_active === 1 ? 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400'
                     }`}>
                       {domain.is_active === 1 ? 'Active' : 'Disabled'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-8 py-5 text-right">
                     <button 
                       onClick={() => handleDelete(domain.id)}
-                      className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                      className="inline-flex items-center justify-center p-2 text-gray-500 hover:text-red-500 transition-colors duration-300"
                       title="Delete Domain"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={20} />
                     </button>
                   </td>
                 </tr>
               ))}
               {domains.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400 transition-colors">
+                  <td colSpan={5} className="px-8 py-16 text-center text-gray-500 dark:text-gray-400 transition-colors font-bold tracking-tight text-lg">
                     No domains found
                   </td>
                 </tr>
@@ -133,15 +133,15 @@ export default function Domains() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity animate-in fade-in duration-300">
-          <div className="backdrop-blur-2xl bg-white/80 dark:bg-[#1c1c1e]/80 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-white/20 dark:border-gray-700/30 w-full max-w-md overflow-hidden transition-all duration-300 transform scale-100 animate-in zoom-in-95 duration-300">
-            <div className="px-6 py-4 border-b border-gray-200/50 dark:border-gray-700/50 bg-white/40 dark:bg-black/20 backdrop-blur-md">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white transition-colors">Add New Domain</h2>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50 p-6 transition-opacity animate-in fade-in duration-300">
+          <div className="glass-panel w-full max-w-md overflow-hidden transition-all duration-500 animate-in slide-in-from-bottom-8 ease-apple">
+            <div className="px-8 py-6 border-b border-white/20 dark:border-white/10 bg-white/40 dark:bg-black/20 backdrop-blur-xl">
+              <h2 className="text-xl font-extrabold text-gray-900 dark:text-white transition-colors tracking-tight">Add New Domain</h2>
             </div>
-            <form onSubmit={handleCreate} className="p-6">
-              <div className="space-y-4">
+            <form onSubmit={handleCreate} className="p-8">
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 transition-colors">
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 tracking-widest uppercase">
                     Domain Name
                   </label>
                   <input
@@ -150,36 +150,41 @@ export default function Domains() {
                     value={newDomain}
                     onChange={(e) => setNewDomain(e.target.value)}
                     placeholder="e.g. short.mycompany.com"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-black/20 text-gray-900 dark:text-white focus:bg-white/80 dark:focus:bg-black/40 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 backdrop-blur-md shadow-inner transition-all duration-300 outline-none font-medium placeholder-gray-400 dark:placeholder-gray-500"
+                    className="glass-input w-full px-6 py-4 rounded-[1.5rem] text-gray-900 dark:text-white font-medium placeholder-gray-400/80 dark:placeholder-gray-500/80 text-lg tracking-tight"
                   />
                 </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <input
-                    type="checkbox"
-                    id="is_primary"
-                    checked={isPrimary}
-                    onChange={(e) => setIsPrimary(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 transition-all duration-200"
-                  />
-                  <label htmlFor="is_primary" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer transition-colors">
+                <div className="flex items-center gap-3 pt-2">
+                  <div className="relative flex items-center justify-center w-6 h-6">
+                    <input
+                      type="checkbox"
+                      id="is_primary"
+                      checked={isPrimary}
+                      onChange={(e) => setIsPrimary(e.target.checked)}
+                      className="peer sr-only"
+                    />
+                    <div className="absolute inset-0 rounded-md border-2 border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-black/50 peer-checked:bg-accent-blue peer-checked:border-accent-blue transition-all duration-300 shadow-sm backdrop-blur-sm" />
+                  </div>
+                  <label htmlFor="is_primary" className="text-sm font-semibold text-gray-700 dark:text-gray-300 cursor-pointer transition-colors">
                     Set as Primary Domain
                   </label>
                 </div>
               </div>
-              <div className="mt-8 flex justify-end gap-3">
+              <div className="mt-10 flex justify-end gap-4">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-white/60 dark:hover:bg-gray-700/60 rounded-xl transition-all duration-300 font-medium"
+                  className="px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 rounded-[1.2rem] transition-all duration-300 font-bold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitLoading || !newDomain}
-                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 font-medium shadow-md hover:shadow-lg active:scale-95 flex items-center justify-center min-w-[100px]"
+                  className="glass-button px-8 py-3 flex items-center justify-center min-w-[120px] text-lg tracking-tight disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitLoading ? 'Creating...' : 'Create'}
+                  {submitLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : 'Create'}
                 </button>
               </div>
             </form>
