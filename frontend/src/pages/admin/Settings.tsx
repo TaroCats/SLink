@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api';
-import { KeyRound } from 'lucide-react';
+import { UserCog } from 'lucide-react';
 
 export default function Settings() {
   const { t } = useTranslation();
+  const [currentUsername, setCurrentUsername] = useState('');
+  const [newUsername, setNewUsername] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -12,32 +14,64 @@ export default function Settings() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  useEffect(() => {
+    api.getAccount()
+      .then((acc: any) => {
+        if (acc?.username) {
+          setCurrentUsername(acc.username);
+          setNewUsername(acc.username);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    if (newPassword.trim().length < 8) {
+    const trimmedUsername = newUsername.trim();
+    const usernameChanged = trimmedUsername !== '' && trimmedUsername !== currentUsername;
+    const passwordChanged = newPassword.trim() !== '';
+
+    if (usernameChanged && trimmedUsername.length > 50) {
+      setError(t('username_max_length'));
+      return;
+    }
+    if (!usernameChanged && !passwordChanged) {
+      setError(t('no_changes_to_save'));
+      return;
+    }
+    if (passwordChanged && newPassword.trim().length < 8) {
       setError(t('password_min_length'));
       return;
     }
-    if (newPassword !== confirmPassword) {
+    if (passwordChanged && newPassword !== confirmPassword) {
       setError(t('password_mismatch'));
       return;
     }
 
     setLoading(true);
     try {
-      await api.changePassword({
+      const payload: { current_password: string; new_username?: string; new_password?: string } = {
         current_password: currentPassword,
-        new_password: newPassword,
-      });
-      setSuccess(t('password_updated'));
+      };
+      if (usernameChanged) payload.new_username = trimmedUsername;
+      if (passwordChanged) payload.new_password = newPassword;
+
+      const res: any = await api.updateAccount(payload);
+      setSuccess(t('account_updated'));
+      setCurrentUsername(res?.username || trimmedUsername || currentUsername);
+      setNewUsername(res?.username || trimmedUsername || currentUsername);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (e: any) {
-      setError(e?.message || 'API Request Failed');
+      const msg = e?.message || 'API Request Failed';
+      if (msg === 'Username already taken') setError(t('username_taken'));
+      else if (msg === 'Invalid current password') setError(t('invalid_password'));
+      else if (msg === 'Nothing to update') setError(t('no_changes_to_save'));
+      else setError(msg);
     } finally {
       setLoading(false);
     }
@@ -52,11 +86,11 @@ export default function Settings() {
       <div className="max-w-xl glass-panel p-8 sm:p-12 transition-all duration-500">
         <div className="flex items-center gap-4 mb-10">
           <div className="p-4 rounded-[1.2rem] bg-accent-blue/10 dark:bg-accent-blue/20">
-            <KeyRound className="text-accent-blue dark:text-accent-cyan" size={24} strokeWidth={2} />
+            <UserCog className="text-accent-blue dark:text-accent-cyan" size={24} strokeWidth={2} />
           </div>
           <div>
-            <div className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight">{t('change_password')}</div>
-            <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 tracking-tight">{t('change_password_desc')}</div>
+            <div className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight">{t('account_settings')}</div>
+            <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 tracking-tight">{t('account_settings_desc')}</div>
           </div>
         </div>
 
@@ -88,6 +122,26 @@ export default function Settings() {
 
           <div>
             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 ml-2 tracking-widest uppercase">
+              {t('new_username')}
+            </label>
+            <input
+              type="text"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              autoComplete="username"
+              placeholder={t('username_keep_hint')}
+              maxLength={50}
+              className="mt-2 glass-input w-full px-6 py-4 rounded-[1.5rem] text-gray-900 dark:text-white placeholder-gray-400/80 dark:placeholder-gray-500/80 font-medium tracking-tight text-lg"
+            />
+            {currentUsername && (
+              <div className="mt-2 ml-2 text-xs font-semibold text-gray-400 dark:text-gray-500">
+                {t('current_username')}: {currentUsername}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 ml-2 tracking-widest uppercase">
               {t('new_password')}
             </label>
             <input
@@ -95,8 +149,8 @@ export default function Settings() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               autoComplete="new-password"
-              className="mt-2 glass-input w-full px-6 py-4 rounded-[1.5rem] text-gray-900 dark:text-white font-medium tracking-tight text-lg"
-              required
+              placeholder={t('password_keep_hint')}
+              className="mt-2 glass-input w-full px-6 py-4 rounded-[1.5rem] text-gray-900 dark:text-white placeholder-gray-400/80 dark:placeholder-gray-500/80 font-medium tracking-tight text-lg"
             />
           </div>
 
@@ -109,8 +163,8 @@ export default function Settings() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               autoComplete="new-password"
-              className="mt-2 glass-input w-full px-6 py-4 rounded-[1.5rem] text-gray-900 dark:text-white font-medium tracking-tight text-lg"
-              required
+              placeholder={t('password_keep_hint')}
+              className="mt-2 glass-input w-full px-6 py-4 rounded-[1.5rem] text-gray-900 dark:text-white placeholder-gray-400/80 dark:placeholder-gray-500/80 font-medium tracking-tight text-lg"
             />
           </div>
 
@@ -133,4 +187,3 @@ export default function Settings() {
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use crate::models::{
-    ChangePasswordRequest, CreateDomainRequest, LoginRequest, LoginResponse, ShortenRequest,
+    AccountUpdateRequest, CreateDomainRequest, LoginRequest, LoginResponse, ShortenRequest,
     ShortenResponse, UnlockRequest, UnlockResponse,
 };
 use crate::AppState;
@@ -322,9 +322,8 @@ pub async fn delete_link(
     }
 }
 
-pub async fn change_password(
+pub async fn get_account(
     req: HttpRequest,
-    body: web::Json<ChangePasswordRequest>,
     data: web::Data<AppState>,
 ) -> impl Responder {
     let claims = match extract_admin_claims(&req) {
@@ -332,16 +331,36 @@ pub async fn change_password(
         Err(resp) => return resp,
     };
 
-    if body.new_password.trim().len() < 8 {
-        return HttpResponse::BadRequest().json(json!({"error": "New password must be at least 8 characters"}));
+    match db::get_user_by_id(&data.db, &claims.sub).await {
+        Ok(Some(user)) => HttpResponse::Ok().json(json!({
+            "username": user.username,
+            "email": user.email,
+            "is_admin": user.is_admin == 1
+        })),
+        Ok(None) => HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"})),
+        Err(e) => {
+            eprintln!("Failed to fetch account: {:?}", e);
+            HttpResponse::InternalServerError().json(json!({"error": "Failed to fetch account"}))
+        }
     }
+}
+
+pub async fn update_account(
+    req: HttpRequest,
+    body: web::Json<AccountUpdateRequest>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let claims = match extract_admin_claims(&req) {
+        Ok(c) => c,
+        Err(resp) => return resp,
+    };
 
     let user = match db::get_user_by_id(&data.db, &claims.sub).await {
         Ok(Some(u)) => u,
         Ok(None) => return HttpResponse::Unauthorized().json(json!({"error": "Unauthorized"})),
         Err(e) => {
             eprintln!("Failed to fetch user: {:?}", e);
-            return HttpResponse::InternalServerError().json(json!({"error": "Failed to change password"}));
+            return HttpResponse::InternalServerError().json(json!({"error": "Failed to update account"}));
         }
     };
 
@@ -349,19 +368,55 @@ pub async fn change_password(
         return HttpResponse::Unauthorized().json(json!({"error": "Invalid current password"}));
     }
 
-    let new_hash = match hash(body.new_password.trim(), 12) {
-        Ok(h) => h,
-        Err(e) => {
-            eprintln!("Failed to hash password: {:?}", e);
-            return HttpResponse::InternalServerError().json(json!({"error": "Failed to change password"}));
+    // Username: empty / unchanged means keep
+    let new_username = body.new_username.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let mut username_to_set: Option<&str> = None;
+    if let Some(username) = new_username {
+        if username.chars().count() > 50 {
+            return HttpResponse::BadRequest().json(json!({"error": "Username must be at most 50 characters"}));
         }
-    };
+        if username != user.username {
+            match db::get_user_by_username(&data.db, username).await {
+                Ok(Some(_)) => {
+                    return HttpResponse::BadRequest().json(json!({"error": "Username already taken"}));
+                }
+                Ok(None) => username_to_set = Some(username),
+                Err(e) => {
+                    eprintln!("Failed to check username: {:?}", e);
+                    return HttpResponse::InternalServerError().json(json!({"error": "Failed to update account"}));
+                }
+            }
+        }
+    }
 
-    match db::update_user_password_hash(&data.db, &user.id, &new_hash).await {
-        Ok(_) => HttpResponse::Ok().json(json!({"message": "Password updated successfully"})),
+    // Password: empty means keep
+    let new_password = body.new_password.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let mut password_hash_to_set: Option<String> = None;
+    if let Some(password) = new_password {
+        if password.chars().count() < 8 {
+            return HttpResponse::BadRequest().json(json!({"error": "New password must be at least 8 characters"}));
+        }
+        match hash(password, 12) {
+            Ok(h) => password_hash_to_set = Some(h),
+            Err(e) => {
+                eprintln!("Failed to hash password: {:?}", e);
+                return HttpResponse::InternalServerError().json(json!({"error": "Failed to update account"}));
+            }
+        }
+    }
+
+    if username_to_set.is_none() && password_hash_to_set.is_none() {
+        return HttpResponse::BadRequest().json(json!({"error": "Nothing to update"}));
+    }
+
+    match db::update_user_account(&data.db, &user.id, username_to_set, password_hash_to_set.as_deref()).await {
+        Ok(_) => HttpResponse::Ok().json(json!({
+            "message": "Account updated successfully",
+            "username": username_to_set.unwrap_or(&user.username)
+        })),
         Err(e) => {
-            eprintln!("Failed to update password: {:?}", e);
-            HttpResponse::InternalServerError().json(json!({"error": "Failed to change password"}))
+            eprintln!("Failed to update account: {:?}", e);
+            HttpResponse::InternalServerError().json(json!({"error": "Failed to update account"}))
         }
     }
 }

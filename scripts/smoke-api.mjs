@@ -78,7 +78,7 @@ async function main() {
 
   if (changePassword) {
     const newPw = "admin12345";
-    await request("POST", "/api/admin/password", token, {
+    await request("POST", "/api/admin/account", token, {
       current_password: "admin123",
       new_password: newPw,
     });
@@ -87,6 +87,21 @@ async function main() {
       password: newPw,
     });
     if (!login2.token) throw new Error("Missing token from re-login");
+
+    // Rename the account, then rename it back
+    await request("POST", "/api/admin/account", token, {
+      current_password: newPw,
+      new_username: "admin2",
+    });
+    const login3 = await request("POST", "/api/admin/login", null, {
+      username: "admin2",
+      password: newPw,
+    });
+    if (!login3.token) throw new Error("Missing token after rename");
+    await request("POST", "/api/admin/account", token, {
+      current_password: newPw,
+      new_username: "admin",
+    });
   }
 
   process.stdout.write("SMOKE TEST PASSED\n");

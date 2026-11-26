@@ -15,6 +15,10 @@ services:
       - DATABASE_URL=sqlite:///app/data/shortlink.db
       - RUST_LOG=info
       - BIND_ADDRESS=0.0.0.0:8080
+      # 初始化管理员用户名与密码（仅首次初始化生效，默认 admin / admin123）
+      # 可直接改这里，或在同目录 .env / 宿主机环境变量中设置
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
       # 可以在这里替换为您自己的 t.cn 接口 App Key
       # - T_CN_APPKEY=YOUR_APP_KEY
 

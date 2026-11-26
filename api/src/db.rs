@@ -17,13 +17,51 @@ pub async fn get_user_by_id(pool: &Pool<Sqlite>, id: &str) -> Result<Option<User
         .await
 }
 
-pub async fn update_user_password_hash(pool: &Pool<Sqlite>, id: &str, password_hash: &str) -> Result<(), sqlx::Error> {
-    sqlx::query("UPDATE users SET password_hash = ? WHERE id = ?")
-        .bind(password_hash)
+pub async fn update_user_account(
+    pool: &Pool<Sqlite>,
+    id: &str,
+    username: Option<&str>,
+    password_hash: Option<&str>,
+) -> Result<(), sqlx::Error> {
+    if let Some(username) = username {
+        sqlx::query("UPDATE users SET username = ? WHERE id = ?")
+            .bind(username)
+            .bind(id)
+            .execute(pool)
+            .await?;
+    }
+    if let Some(password_hash) = password_hash {
+        sqlx::query("UPDATE users SET password_hash = ? WHERE id = ?")
+            .bind(password_hash)
+            .bind(id)
+            .execute(pool)
+            .await?;
+    }
+    Ok(())
+}
+
+pub async fn create_admin_user(
+    pool: &Pool<Sqlite>,
+    id: &str,
+    username: &str,
+    password_hash: &str,
+    email: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("INSERT INTO users (id, username, password_hash, email, is_admin) VALUES (?, ?, ?, ?, 1)")
         .bind(id)
+        .bind(username)
+        .bind(password_hash)
+        .bind(email)
         .execute(pool)
         .await?;
     Ok(())
+}
+
+pub async fn count_admin_users(pool: &Pool<Sqlite>) -> Result<i64, sqlx::Error> {
+    let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE is_admin = 1")
+        .fetch_one(pool)
+        .await?;
+    Ok(row.0)
 }
 
 pub async fn get_link_by_code(pool: &Pool<Sqlite>, code: &str) -> Result<Option<Link>, sqlx::Error> {

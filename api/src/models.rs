@@ -100,9 +100,10 @@ pub struct LoginResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ChangePasswordRequest {
+pub struct AccountUpdateRequest {
     pub current_password: String,
-    pub new_password: String,
+    pub new_username: Option<String>,
+    pub new_password: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

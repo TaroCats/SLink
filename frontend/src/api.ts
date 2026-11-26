@@ -52,6 +52,7 @@ export const api = {
     fetchWithAuth('/admin/domains', { method: 'POST', body: JSON.stringify(data) }),
   deleteDomain: (id: string) => 
     fetchWithAuth(`/admin/domains/${id}`, { method: 'DELETE' }),
-  changePassword: (data: { current_password: string; new_password: string }) =>
-    fetchWithAuth('/admin/password', { method: 'POST', body: JSON.stringify(data) }),
+  getAccount: () => fetchWithAuth('/admin/account'),
+  updateAccount: (data: { current_password: string; new_username?: string; new_password?: string }) =>
+    fetchWithAuth('/admin/account', { method: 'POST', body: JSON.stringify(data) }),
 };

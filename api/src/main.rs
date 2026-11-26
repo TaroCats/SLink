@@ -15,6 +15,96 @@ pub struct AppState {
     pub db: Pool<Sqlite>,
 }
 
+/// bcrypt hash of the default admin (password: admin123) seeded by the init migration.
+/// Used to detect whether the seeded account is still in its pristine, uninitialized state.
+const SEEDED_ADMIN_HASH: &str = "$2b$12$7sA8WyYtDwQX714GsvYl5uhck9k3u3rwmlyjAPtnp.w/SCSJthjHa";
+
+/// Initialize the admin account from ADMIN_USERNAME / ADMIN_PASSWORD env vars.
+///
+/// Semantics (init-only):
+/// - Applied while the account is still uninitialized: the seeded default admin
+///   is untouched, or no admin exists yet.
+/// - Never overwrites an existing admin account afterwards (e.g. password
+///   changed from the console); rotate credentials via the console in that case.
+async fn ensure_initial_admin(pool: &Pool<Sqlite>) {
+    let username = env::var("ADMIN_USERNAME")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "admin".to_string());
+    let password = env::var("ADMIN_PASSWORD")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "admin123".to_string());
+
+    // 1. Configured user already exists -> never touch it.
+    if let Ok(Some(user)) = db::get_user_by_username(pool, &username).await {
+        if bcrypt::verify(&password, &user.password_hash).unwrap_or(false) {
+            println!("[init] admin '{}' ready", username);
+        } else {
+            println!(
+                "[init] admin '{}' exists; ADMIN_PASSWORD not applied (init-only, change password via console)",
+                username
+            );
+        }
+        return;
+    }
+
+    // 2. Pristine seeded default admin -> convert it to the configured credentials.
+    if let Ok(Some(user)) = db::get_user_by_username(pool, "admin").await {
+        if user.password_hash == SEEDED_ADMIN_HASH {
+            // Already matches env config (default admin / admin123) -> nothing to do.
+            if username == "admin" && bcrypt::verify(&password, SEEDED_ADMIN_HASH).unwrap_or(false) {
+                println!("[init] admin 'admin' ready");
+                return;
+            }
+            let new_hash = match bcrypt::hash(&password, 12) {
+                Ok(h) => h,
+                Err(e) => {
+                    eprintln!("[init] failed to hash admin password: {}", e);
+                    return;
+                }
+            };
+            match db::update_user_account(pool, &user.id, Some(&username), Some(&new_hash)).await {
+                Ok(_) => println!("[init] admin account initialized as '{}'", username),
+                Err(e) => eprintln!("[init] failed to initialize admin account: {:?}", e),
+            }
+            return;
+        }
+    }
+
+    // 3. An admin already exists (customized) -> env config is init-only, skip.
+    match db::count_admin_users(pool).await {
+        Ok(n) if n > 0 => {
+            println!(
+                "[init] admin already initialized; ADMIN_USERNAME/ADMIN_PASSWORD are ignored (applied only at initialization)"
+            );
+            return;
+        }
+        Err(e) => {
+            eprintln!("[init] failed to check admin users: {:?}", e);
+            return;
+        }
+        Ok(_) => {}
+    }
+
+    // 4. No admin at all -> create one from env config.
+    let new_hash = match bcrypt::hash(&password, 12) {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("[init] failed to hash admin password: {}", e);
+            return;
+        }
+    };
+    let id = uuid::Uuid::new_v4().to_string();
+    let email = format!("{}@example.com", username);
+    match db::create_admin_user(pool, &id, &username, &new_hash, &email).await {
+        Ok(_) => println!("[init] admin account created as '{}'", username),
+        Err(e) => eprintln!("[init] failed to create admin account: {:?}", e),
+    }
+}
+
 async fn index_html(_req: HttpRequest) -> actix_web::Result<fs::NamedFile> {
     let path = std::path::PathBuf::from("./public/index.html");
     if path.exists() {
@@ -53,6 +143,9 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Failed to run database migrations");
 
+    // Initialize admin account from ADMIN_USERNAME / ADMIN_PASSWORD (init-only)
+    ensure_initial_admin(&pool).await;
+
     let app_state = web::Data::new(AppState { db: pool });
 
     println!("Server starting at http://localhost:8080");
@@ -82,7 +175,8 @@ async fn main() -> std::io::Result<()> {
                             .route("/domains/{id}", web::delete().to(handlers::delete_domain))
                             .route("/stats", web::get().to(handlers::get_stats))
                             .route("/links/{id}/stats", web::get().to(handlers::get_link_stats))
-                            .route("/password", web::post().to(handlers::change_password))
+                            .route("/account", web::get().to(handlers::get_account))
+                            .route("/account", web::post().to(handlers::update_account))
                     )
             )
             // Serve static files from the 'public' directory
